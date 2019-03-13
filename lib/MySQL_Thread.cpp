@@ -3001,7 +3001,8 @@ __run_skip_1a:
 					// debugging output before assert
 					MySQL_Data_Stream *_myds=mypolls.myds[n];
 					if (_myds) {
-						if (_myds->myconn) {
+                        if (_myds->sess && _myds->sess->track) {proxy_error("%p: bad FD %p\n", this, _myds->sess);}
+					    if (_myds->myconn) {
 							proxy_error("revents==POLLNVAL for FD=%d, events=%d, MyDSFD=%d, MyConnFD=%d\n", mypolls.fds[n].fd, mypolls.fds[n].events, myds->fd, myds->myconn->fd);
 							assert(mypolls.fds[n].revents!=POLLNVAL);
 						}
@@ -3108,11 +3109,13 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 					// no events
 					if (myds->wait_until && curtime > myds->wait_until) {
 						// timeout
+                        if (myds->sess && myds->sess->track) {proxy_error("%p: process_data_on_data_stream no event timeout1 %p\n", this, myds->sess);}
 						myds->sess->to_process=1;
 						assert(myds->sess->status!=NONE);
 					} else {
 						if (myds->sess->pause_until && curtime > myds->sess->pause_until) {
 							// timeout
+                            if (myds->sess && myds->sess->track) {proxy_error("%p: process_data_on_data_stream no event timeout2 %p\n", this, myds->sess);}
 							myds->sess->to_process=1;
 						}
 					}
@@ -3137,7 +3140,8 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 					return true;
 				}
 				if (mypolls.fds[n].revents) {
-					if (mypolls.myds[n]->DSS < STATE_MARIADB_BEGIN || mypolls.myds[n]->DSS > STATE_MARIADB_END) {
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: handling revent %p\n", this, sess);}
+				    if (mypolls.myds[n]->DSS < STATE_MARIADB_BEGIN || mypolls.myds[n]->DSS > STATE_MARIADB_END) {
 						// only if we aren't using MariaDB Client Library
 						int rb = 0;
 						rb = myds->read_from_net();
@@ -3157,6 +3161,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 						myds->set_net_failure();
 					}
 					myds->check_data_flow();
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: finish handling revent %p\n", this, sess);}
 				}
 
 
@@ -3213,6 +3218,7 @@ void MySQL_Thread::process_all_sessions() {
 	}
 	for (n=0; n<mysql_sessions->len; n++) {
 		MySQL_Session *sess=(MySQL_Session *)mysql_sessions->index(n);
+        if (sess && sess->track) {proxy_error("%p: processing %p\n", this, sess);}
 #ifdef DEBUG
 		if(sess==sess_stopat) {
 			sess_stopat=sess;
@@ -3255,10 +3261,10 @@ void MySQL_Thread::process_all_sessions() {
 					numTrx = sess->NumActiveTransactions();
 					if (numTrx) {
 						// the session has idle transactions, kill it
-						if (sess_time/1000 > (unsigned long long)mysql_thread___max_transaction_time) sess->killed=true;
+						if (sess_time/1000 > (unsigned long long)mysql_thread___max_transaction_time) {if (sess && sess->track) {proxy_error("%p: kill1 %p\n", this, sess);} sess->killed=true;}
 					} else {
 						// the session is idle, kill it
-						if (sess_time/1000 > (unsigned long long)mysql_thread___wait_timeout) sess->killed=true;
+						if (sess_time/1000 > (unsigned long long)mysql_thread___wait_timeout) {if (sess && sess->track) {proxy_error("%p: kill2 %p\n", this, sess);} sess->killed=true;}
 					}
 				}
 				if (servers_table_version_current != servers_table_version_previous) { // bug fix for #1085
@@ -3272,14 +3278,16 @@ void MySQL_Thread::process_all_sessions() {
 				else
 			{
 				if ( (sess_time/1000 > (unsigned long long)mysql_thread___wait_timeout) ) {
-					sess->killed=true;
+					if (sess && sess->track) {proxy_error("%p: epoll maintenance kill %p\n", this, sess);}
+				    sess->killed=true;
 					sess->to_process=1;
 				}
 			}
 #endif // IDLE_THREADS
 		}
 		if (sess->healthy==0) {
-			unregister_session(n);
+            if (sess && sess->track) {proxy_error("%p: kill unhealthy %p\n", this, sess);}
+		    unregister_session(n);
 			n--;
 			delete sess;
 		} else {
@@ -3288,14 +3296,16 @@ void MySQL_Thread::process_all_sessions() {
 					rc=sess->handler();
 					total_active_transactions_+=sess->active_transactions;
 					if (rc==-1 || sess->killed==true) {
-						unregister_session(n);
+                        if (sess && sess->track) {proxy_error("%p: kill healthy1 %p\n", this, sess);}
+					    unregister_session(n);
 						n--;
 						delete sess;
 					}
 				}
 			} else {
 				if (sess->killed==true) {
-					// this is a special cause, if killed the session needs to be executed no matter if paused
+                    if (sess && sess->track) {proxy_error("%p: kill killed %p\n", this, sess);}
+				    // this is a special cause, if killed the session needs to be executed no matter if paused
 					sess->handler();
 					unregister_session(n);
 					n--;
