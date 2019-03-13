@@ -2534,7 +2534,7 @@ __run_skip_1:
 			pthread_mutex_lock(&myexchange.mutex_idles);
 			while (myexchange.idle_mysql_sessions->len) {
 				MySQL_Session *mysess=(MySQL_Session *)myexchange.idle_mysql_sessions->remove_index_fast(0);
-				if (mysess->track) {proxy_error("%li: Getting from my exchange, register %p\n", thread_id, mysess);}
+				if (mysess->track) {proxy_error("%p: Getting from my exchange, register %p\n", this, mysess);}
 				register_session(mysess, false);
 				MySQL_Data_Stream *myds=mysess->client_myds;
 				mypolls.add(POLLIN, myds->fd, myds, monotonic_time());
@@ -2600,7 +2600,7 @@ __mysql_thread_exit_add_mirror:
 							unsigned long long _tmp_idle = mypolls.last_recv[n] > mypolls.last_sent[n] ? mypolls.last_recv[n] : mypolls.last_sent[n] ;
 							if (_tmp_idle < ( (curtime > (unsigned int)mysql_thread___session_idle_ms * 1000) ? (curtime - mysql_thread___session_idle_ms * 1000) : 0)) {
 								if (myds->sess->client_myds == myds && myds->PSarrayOUT->len==0 && (myds->queueOUT.head - myds->queueOUT.tail)==0 ) { // extra check
-								    if (myds->sess && myds->sess->track) {proxy_error("%li: poll checking conn %p\n", thread_id, myds->sess);}
+								    if (myds->sess && myds->sess->track) {proxy_error("%p: poll checking conn %p\n", this, myds->sess);}
 									unsigned int j;
 									int conns=0;
 									for (j=0;j<myds->sess->mybes->len;j++) {
@@ -2618,7 +2618,7 @@ __mysql_thread_exit_add_mirror:
 										for (i=0;i<mysql_sessions->len;i++) {
 											MySQL_Session *mysess=(MySQL_Session *)mysql_sessions->index(i);
 											if (mysess==myds->sess) {
-											    if (mysess->track) {proxy_error("%li: poll idle too long, unreg, move to idle %p\n", thread_id, mysess);}
+											    if (mysess->track) {proxy_error("%p: poll idle too long, unreg, move to idle %p\n", this, mysess);}
 												mysess->thread=NULL;
 												unregister_session(i);
 												mysess->idle_since = idle_since;
@@ -2653,10 +2653,10 @@ __mysql_thread_exit_add_mirror:
 			if (myds) myds->revents=0;
 			if (mypolls.myds[n] && mypolls.myds[n]->myds_type!=MYDS_LISTENER) {
 				if (myds && myds->myds_type==MYDS_FRONTEND && myds->DSS==STATE_SLEEP && myds->sess && myds->sess->status==WAITING_CLIENT_DATA) {
-                    if (myds->sess && myds->sess->track) {proxy_error("%li: waiting client data %p\n", thread_id, myds->sess);}
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: waiting client data %p\n", this, myds->sess);}
 					mypolls.myds[n]->set_pollout();
 				} else {
-                    if (myds->sess && myds->sess->track) {proxy_error("%li: waiting client data2 %p\n", thread_id, myds->sess);}
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: waiting client data2 %p\n", this, myds->sess);}
 					if (mypolls.myds[n]->DSS > STATE_MARIADB_BEGIN && mypolls.myds[n]->DSS < STATE_MARIADB_END) {
 						mypolls.fds[n].events = POLLIN;
 						if (mypolls.myds[n]->myconn->async_exit_status & MYSQL_WAIT_WRITE)
@@ -2667,7 +2667,7 @@ __mysql_thread_exit_add_mirror:
 				}
 				if (myds && myds->sess->pause_until > curtime) {
 					if (myds->myds_type==MYDS_FRONTEND) {
-                        if (myds->sess && myds->sess->track) {proxy_error("%li: remove pollout %p\n", thread_id, myds->sess);}
+                        if (myds->sess && myds->sess->track) {proxy_error("%p: remove pollout %p\n", this, myds->sess);}
 						mypolls.myds[n]->remove_pollout();
 					}
 					if (myds->myds_type==MYDS_BACKEND) {
@@ -2685,7 +2685,7 @@ __mysql_thread_exit_add_mirror:
 						// but assuming that client isn't completely blocked, we will stop checking for data
 						// only at mysql_thread___threshold_resultset_size * 4
 						if (buffered_data > (unsigned int)mysql_thread___threshold_resultset_size*4) {
-                            if (myds->sess && myds->sess->track) {proxy_error("%li: result throttle %p\n", thread_id, myds->sess);}
+                            if (myds->sess && myds->sess->track) {proxy_error("%p: result throttle %p\n", this, myds->sess);}
 							mypolls.fds[n].events = 0;
 						}
 					}
@@ -2709,7 +2709,7 @@ __mysql_thread_exit_add_mirror:
 					}
 					while (idle_mysql_sessions->len) {
 						MySQL_Session *mysess=(MySQL_Session *)idle_mysql_sessions->remove_index_fast(0);
-						if (mysess->track) {proxy_error("%li: poll move idle to thr exchange idle %p\n", thread_id, mysess);}
+						if (mysess->track) {proxy_error("%p: poll move idle to thr exchange idle %p\n", this, mysess);}
 						thr->myexchange.idle_mysql_sessions->add(mysess);
 					}
 					pthread_mutex_unlock(&thr->myexchange.mutex_idles);
@@ -2726,7 +2726,7 @@ __mysql_thread_exit_add_mirror:
 					//unsigned int maxsess=GloMTH->resume_mysql_sessions->len;
 					while (myexchange.resume_mysql_sessions->len) {
 						MySQL_Session *mysess=(MySQL_Session *)myexchange.resume_mysql_sessions->remove_index_fast(0);
-						if (mysess->track) {proxy_error("%li: poll get from myexchange resume, reg %p\n", thread_id, mysess);}
+						if (mysess->track) {proxy_error("%p: poll get from myexchange resume, reg %p\n", this, mysess);}
 						register_session(mysess, false);
 						MySQL_Data_Stream *myds=mysess->client_myds;
 						mypolls.add(POLLIN, myds->fd, myds, monotonic_time());
@@ -2849,7 +2849,7 @@ __run_skip_1a:
 #endif // IDLE_THREADS
 			for (n=0; n<mysql_sessions->len; n++) {
 				MySQL_Session *_sess=(MySQL_Session *)mysql_sessions->index(n);
-                if (_sess->track) {proxy_error("%li: set sess to_process=0 %p\n", thread_id, _sess);}
+                if (_sess->track) {proxy_error("%p: set sess to_process=0 %p\n", this, _sess);}
 				_sess->to_process=0;
 			}
 #ifdef IDLE_THREADS
@@ -2868,7 +2868,7 @@ __run_skip_1a:
 							uint32_t sess_thr_id=events[i].data.u32;
 							uint32_t sess_pos=sessmap[sess_thr_id];
 							MySQL_Session *mysess=(MySQL_Session *)mysql_sessions->index(sess_pos);
-							if (mysess->track) {proxy_error("%li: epoll got event, unreg, move to resume %p\n", thread_id, mysess);}
+							if (mysess->track) {proxy_error("%p: epoll got event, unreg, move to resume %p\n", this, mysess);}
 							MySQL_Data_Stream *tmp_myds=mysess->client_myds;
 							int dsidx=tmp_myds->poll_fds_idx;
 							//fprintf(stderr,"Removing session %p, DS %p idx %d\n",mysess,tmp_myds,dsidx);
@@ -2914,7 +2914,7 @@ __run_skip_1a:
 					uint32_t sess_pos=mysess_idx;
 					MySQL_Session *mysess=(MySQL_Session *)mysql_sessions->index(sess_pos);
 					if (mysess->idle_since < min_idle) {
-					    if (mysess->track) {proxy_error("%li: maintenance loop killed, unreg, move to resume %p\n", thread_id, mysess);}
+					    if (mysess->track) {proxy_error("%p: maintenance loop killed, unreg, move to resume %p\n", this, mysess);}
 						mysess->killed=true;
 						MySQL_Data_Stream *tmp_myds=mysess->client_myds;
 						int dsidx=tmp_myds->poll_fds_idx;
@@ -2945,7 +2945,7 @@ __run_skip_1a:
 			proxy_debug(PROXY_DEBUG_NET,3, "poll for fd %d events %d revents %d\n", mypolls.fds[n].fd , mypolls.fds[n].events, mypolls.fds[n].revents);
 
 			MySQL_Data_Stream *myds=mypolls.myds[n];
-            if (myds->sess && myds->sess->track) {proxy_error("%li: checking mypoll fd %d events %d revents %d  %p\n", thread_id, mypolls.fds[n].fd , mypolls.fds[n].events, mypolls.fds[n].revents, myds->sess);}
+            if (myds->sess && myds->sess->track) {proxy_error("%p: checking mypoll fd %d events %d revents %d  %p\n", this, mypolls.fds[n].fd , mypolls.fds[n].events, mypolls.fds[n].revents, myds->sess);}
 			if (myds==NULL) {
 				if (mypolls.fds[n].revents) {
 					unsigned char c;
@@ -2981,15 +2981,15 @@ __run_skip_1a:
 				if (poll_timeout_bool) {
 				MySQL_Data_Stream *_myds=mypolls.myds[n];
 				if (_myds && _myds->sess) {
-                    if (_myds->sess && _myds->sess->track) {proxy_error("%li: checking timeout %p\n", thread_id, _myds->sess);}
+                    if (_myds->sess && _myds->sess->track) {proxy_error("%p: checking timeout %p\n", this, _myds->sess);}
 					if (_myds->wait_until && curtime > _myds->wait_until) {
 						// timeout
-                        if (_myds->sess && _myds->sess->track) {proxy_error("%li: yes timeout1 %p\n", thread_id, _myds->sess);}
+                        if (_myds->sess && _myds->sess->track) {proxy_error("%p: yes timeout1 %p\n", this, _myds->sess);}
 						_myds->sess->to_process=1;
 					} else {
 						if (_myds->sess->pause_until && curtime > _myds->sess->pause_until) {
 							// timeout
-                            if (_myds->sess && _myds->sess->track) {proxy_error("%li: yes timeout2 %p\n", thread_id, _myds->sess);}
+                            if (_myds->sess && _myds->sess->track) {proxy_error("%p: yes timeout2 %p\n", this, _myds->sess);}
 							_myds->sess->to_process=1;
 						}
 					}
@@ -3038,7 +3038,7 @@ __run_skip_2:
 				if (shutdown==0 && thr->shutdown==0)
 				while (resume_mysql_sessions->len) {
 					MySQL_Session *mysess=(MySQL_Session *)resume_mysql_sessions->remove_index_fast(0);
-					if (mysess->track) {proxy_error("%li: add to thr exchange resume %p\n", thread_id, mysess);}
+					if (mysess->track) {proxy_error("%p: add to thr exchange resume %p\n", this, mysess);}
 					thr->myexchange.resume_mysql_sessions->add(mysess);
 				}
 				pthread_mutex_unlock(&thr->myexchange.mutex_resumes);
@@ -3088,7 +3088,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 							for (i=0;i<mysql_sessions->len;i++) {
 								MySQL_Session *mysess=(MySQL_Session *)mysql_sessions->index(i);
 								if (mysess==myds->sess) {
-								    if (mysess->track) {proxy_error("%li: epoll thread process_data_on_data_stream, unregister %p\n", thread_id, mysess);}
+								    if (mysess->track) {proxy_error("%p: epoll thread process_data_on_data_stream, unregister %p\n", this, mysess);}
 									mysess->thread=NULL;
 									unregister_session(i);
 									//exit_cond=true;
@@ -3104,7 +3104,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 					myds->sess->to_process=1;
 					assert(myds->sess->status!=NONE);
 				} else {
-                    if (myds->sess && myds->sess->track) {proxy_error("%li: process_data_on_data_stream no event %p\n", thread_id, myds->sess);}
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: process_data_on_data_stream no event %p\n", this, myds->sess);}
 					// no events
 					if (myds->wait_until && curtime > myds->wait_until) {
 						// timeout
@@ -3126,7 +3126,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 					// this can happen, for example, with a low wait_timeout and running transaction
 						if (myds->sess->status==WAITING_CLIENT_DATA) {
 							if (myds->myconn->async_state_machine==ASYNC_IDLE) {
-                                if (myds->sess && myds->sess->track) {proxy_error("%li: Detected broken idle connection %p\n", thread_id, myds->sess);}
+                                if (myds->sess && myds->sess->track) {proxy_error("%p: Detected broken idle connection %p\n", this, myds->sess);}
 								proxy_warning("Detected broken idle connection on %s:%d\n", myds->myconn->parent->address, myds->myconn->parent->port);
 								myds->destroy_MySQL_Connection_From_Pool(false);
 								myds->sess->set_unhealthy();
@@ -3162,7 +3162,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 
 	      if (myds->active==0) {
 					if (myds->sess->client_myds==myds) {
-                        if (myds->sess && myds->sess->track) {proxy_error("%li: Set unhealthy %p\n", thread_id, myds->sess);}
+                        if (myds->sess && myds->sess->track) {proxy_error("%p: Set unhealthy %p\n", this, myds->sess);}
 						proxy_debug(PROXY_DEBUG_NET,1, "Session=%p, DataStream=%p -- Deleting FD %d\n", myds->sess, myds, myds->fd);
 						myds->sess->set_unhealthy();
 					} else {
