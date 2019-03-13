@@ -657,7 +657,14 @@ bool MySQL_Session::handler_special_queries(PtrSize_t *pkt) {
     if (pkt->size >= 5+sal && strncasecmp((char *)"TRACK ME",(char *)pkt->ptr+5,sal)==0) {
 		proxy_error("Start tracking thr session id %d, %p\n", thread_session_id, this);
 		track=1;
-		return true;
+        client_myds->DSS=STATE_QUERY_SENT_NET;
+        uint16_t setStatus = 0;
+        if (autocommit) setStatus += SERVER_STATUS_AUTOCOMMIT;
+        client_myds->myprot.generate_pkt_OK(true,NULL,NULL,1,0,0,setStatus,0,NULL);
+        client_myds->DSS=STATE_SLEEP;
+        status=WAITING_CLIENT_DATA;
+        l_free(pkt->size,pkt->ptr);
+        return true;
     }
 
 	if (mysql_thread___forward_autocommit == false) {
