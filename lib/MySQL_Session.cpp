@@ -654,7 +654,7 @@ __ret_autocommit_OK:
 bool MySQL_Session::handler_special_queries(PtrSize_t *pkt) {
     size_t sal=strlen("TRACK ME");
     if (pkt->size >= 5+sal && strncasecmp((char *)"TRACK ME",(char *)pkt->ptr+5,sal)==0) {
-		proxy_error("Start tracking %d\n", thread_session_id);
+		proxy_error("Start tracking thr session id %d, %p\n", thread_session_id, this);
 		track=1;
 		return true;
     }
