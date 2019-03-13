@@ -652,6 +652,11 @@ __ret_autocommit_OK:
 }
 
 bool MySQL_Session::handler_special_queries(PtrSize_t *pkt) {
+    size_t sal=strlen("TRACK ME");
+    if (strncasecmp((char *)"TRACK ME",(char *)pkt->ptr+5,sal)==0) {
+		proxy_error("Start tracking %d\n", thread_session_id);
+		track=1;
+    }
 
 	if (mysql_thread___forward_autocommit == false) {
 		if (handler_SetAutocommit(pkt) == true) {
