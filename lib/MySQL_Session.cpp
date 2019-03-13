@@ -264,6 +264,7 @@ void MySQL_Session::operator delete(void *ptr) {
 
 
 MySQL_Session::MySQL_Session() {
+    track=0;
 	thread_session_id=0;
 	handler_ret = 0;
 	pause_until=0;
