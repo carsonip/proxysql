@@ -3140,7 +3140,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 					return true;
 				}
 				if (mypolls.fds[n].revents) {
-                    if (myds->sess && myds->sess->track) {proxy_error("%p: handling revent %p\n", this, sess);}
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: handling revent %p\n", this, myds->sess);}
 				    if (mypolls.myds[n]->DSS < STATE_MARIADB_BEGIN || mypolls.myds[n]->DSS > STATE_MARIADB_END) {
 						// only if we aren't using MariaDB Client Library
 						int rb = 0;
@@ -3161,7 +3161,7 @@ bool MySQL_Thread::process_data_on_data_stream(MySQL_Data_Stream *myds, unsigned
 						myds->set_net_failure();
 					}
 					myds->check_data_flow();
-                    if (myds->sess && myds->sess->track) {proxy_error("%p: finish handling revent %p\n", this, sess);}
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: finish handling revent %p\n", this, myds->sess);}
 				}
 
 
