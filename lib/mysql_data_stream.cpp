@@ -381,6 +381,7 @@ void MySQL_Data_Stream::set_pollout() {
 			_pollfd->events = POLLIN;
 		}
 	}
+	if (sess && sess->track) {proxy_error("DS %p DS set_pollout %p\n", this, sess);}
 	proxy_debug(PROXY_DEBUG_NET,1,"Session=%p, DataStream=%p -- Setting poll events %d for FD %d , DSS=%d , myconn=%p\n", sess, this, _pollfd->events , fd, DSS, myconn);
 }
 
