@@ -2429,6 +2429,7 @@ void MySQL_Thread::poll_listener_del(int sock) {
 	int i=mypolls.find_index(sock);
 	if (i>=0) {
 		MySQL_Data_Stream *myds=mypolls.myds[i];
+        if (myds && myds->sess && myds->sess->track) {proxy_error("%p: poll_listener_del %p\n", this, myds->sess);}
 		mypolls.remove_index_fast(i);
 		myds->fd=-1;	// this to prevent that delete myds will shutdown the fd;
 		delete myds;
@@ -2534,7 +2535,7 @@ __run_skip_1:
 			pthread_mutex_lock(&myexchange.mutex_idles);
 			while (myexchange.idle_mysql_sessions->len) {
 				MySQL_Session *mysess=(MySQL_Session *)myexchange.idle_mysql_sessions->remove_index_fast(0);
-				if (mysess && mysess->track) {proxy_error("%p: Getting from my exchange, register %p\n", this, mysess);}
+				if (mysess && mysess->track) {proxy_error("%p: epoll getting from my exchange, register %p\n", this, mysess);}
 				register_session(mysess, false);
 				MySQL_Data_Stream *myds=mysess->client_myds;
 				mypolls.add(POLLIN, myds->fd, myds, monotonic_time());
@@ -2546,6 +2547,8 @@ __run_skip_1:
 				epoll_ctl (efd, EPOLL_CTL_ADD, myds->fd, &event);
 				// we map thread_id -> position in mysql_session (end of the list)
 				sessmap[mysess->thread_session_id]=mysql_sessions->len-1;
+				if (mysess && mysess->track) {proxy_error("%p: epoll adding session %p; ds %p idx %d fd %d thr_session_id %d\n",
+				        this, mysess, myds, myds->poll_fds_idx, myds->fd, mysess->thread_session_id);}
 				//fprintf(stderr,"Adding session %p idx, DS %p idx %d\n",mysess,myds,myds->poll_fds_idx);
 			}
 			pthread_mutex_unlock(&myexchange.mutex_idles);
@@ -2945,7 +2948,7 @@ __run_skip_1a:
 			proxy_debug(PROXY_DEBUG_NET,3, "poll for fd %d events %d revents %d\n", mypolls.fds[n].fd , mypolls.fds[n].events, mypolls.fds[n].revents);
 
 			MySQL_Data_Stream *myds=mypolls.myds[n];
-            if (myds && myds->sess && myds->sess->track) {proxy_error("%p: checking mypoll fd %d events %d revents %d  %p\n", this, mypolls.fds[n].fd , mypolls.fds[n].events, mypolls.fds[n].revents, myds->sess);}
+            if (myds && myds->sess && myds->sess->track) {proxy_error("%p: checking mypoll DS %p fd %d events %d revents %d  %p\n", this, myds, mypolls.fds[n].fd , mypolls.fds[n].events, mypolls.fds[n].revents, myds->sess);}
 			if (myds==NULL) {
 				if (mypolls.fds[n].revents) {
 					unsigned char c;
@@ -2981,7 +2984,7 @@ __run_skip_1a:
 				if (poll_timeout_bool) {
 				MySQL_Data_Stream *_myds=mypolls.myds[n];
 				if (_myds && _myds->sess) {
-                    if (_myds->sess && _myds->sess->track) {proxy_error("%p: checking timeout %p\n", this, _myds->sess);}
+                    if (_myds->sess && _myds->sess->track) {proxy_error("%p: checking timeout DS %p %p\n", this, _myds, _myds->sess);}
 					if (_myds->wait_until && curtime > _myds->wait_until) {
 						// timeout
                         if (_myds->sess && _myds->sess->track) {proxy_error("%p: yes timeout1 %p\n", this, _myds->sess);}
@@ -3207,7 +3210,8 @@ void MySQL_Thread::process_all_sessions() {
 					if (sess2->mybe && sess2->mybe->server_myds && sess2->mybe->server_myds->max_connect_time && sess2->mybe->server_myds->max_connect_time <= sess->mybe->server_myds->max_connect_time) {
 						// do nothing
 					} else {
-						void *p=mysql_sessions->pdata[a];
+                        if ((sess && sess->track) || (sess2 && sess2->track)) {proxy_error("%p: sorting %p %p\n", this, sess, sess2);}
+					    void *p=mysql_sessions->pdata[a];
 						mysql_sessions->pdata[a]=mysql_sessions->pdata[n];
 						mysql_sessions->pdata[n]=p;
 						a++;
@@ -3256,7 +3260,8 @@ void MySQL_Thread::process_all_sessions() {
 			if (idle_maintenance_thread==false)
 #endif // IDLE_THREADS
 			{
-				sess->to_process=1;
+                if (sess && sess->track) {proxy_error("%p: poll set to_process=1 %p\n", this, sess);}
+			    sess->to_process=1;
 				if ( (sess_time/1000 > (unsigned long long)mysql_thread___max_transaction_time) || (sess_time/1000 > (unsigned long long)mysql_thread___wait_timeout) ) {
 					numTrx = sess->NumActiveTransactions();
 					if (numTrx) {
@@ -3270,7 +3275,8 @@ void MySQL_Thread::process_all_sessions() {
 				if (servers_table_version_current != servers_table_version_previous) { // bug fix for #1085
 					// Immediatelly kill all client connections using an OFFLINE node
 					if (sess->HasOfflineBackends()) {
-						sess->killed=true;
+                        if (sess && sess->track) {proxy_error("%p: has offline backend kill %p\n", this, sess);}
+					    sess->killed=true;
 					}
 				}
 			}
@@ -3286,17 +3292,18 @@ void MySQL_Thread::process_all_sessions() {
 #endif // IDLE_THREADS
 		}
 		if (sess->healthy==0) {
-            if (sess && sess->track) {proxy_error("%p: kill unhealthy %p\n", this, sess);}
+            if (sess && sess->track) {proxy_error("%p: kill unhealthy, unreg %p\n", this, sess);}
 		    unregister_session(n);
 			n--;
 			delete sess;
 		} else {
 			if (sess->to_process==1) {
 				if (sess->pause_until <= curtime) {
-					rc=sess->handler();
+                    if (sess && sess->track) {proxy_error("%p: calling handler %p\n", this, sess);}
+				    rc=sess->handler();
 					total_active_transactions_+=sess->active_transactions;
 					if (rc==-1 || sess->killed==true) {
-                        if (sess && sess->track) {proxy_error("%p: kill healthy1 %p\n", this, sess);}
+                        if (sess && sess->track) {proxy_error("%p: kill healthy1, unreg %p\n", this, sess);}
 					    unregister_session(n);
 						n--;
 						delete sess;
@@ -3304,7 +3311,7 @@ void MySQL_Thread::process_all_sessions() {
 				}
 			} else {
 				if (sess->killed==true) {
-                    if (sess && sess->track) {proxy_error("%p: kill killed %p\n", this, sess);}
+                    if (sess && sess->track) {proxy_error("%p: kill killed, unreg %p\n", this, sess);}
 				    // this is a special cause, if killed the session needs to be executed no matter if paused
 					sess->handler();
 					unregister_session(n);
@@ -3313,6 +3320,7 @@ void MySQL_Thread::process_all_sessions() {
 				}
 			}
 		}
+        if (sess && sess->track) {proxy_error("%p: finish processing session %p\n", this, sess);}
 	}
 	unsigned int total_active_transactions_tmp;
 	total_active_transactions_tmp=__sync_add_and_fetch(&status_variables.active_transactions,0);

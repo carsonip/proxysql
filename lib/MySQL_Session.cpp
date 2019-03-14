@@ -549,6 +549,7 @@ bool MySQL_Session::handler_CommitRollback(PtrSize_t *pkt) {
 	if (ret==false) {
 		return false;	// quick exit
 	}
+    if (track) proxy_error("Commit called %p\n", this);
 	unsigned int nTrx=NumActiveTransactions();
 	if (nTrx) {
         if (track) proxy_error("Commit active trx %p\n", this);
@@ -671,7 +672,7 @@ bool MySQL_Session::handler_special_queries(PtrSize_t *pkt) {
     }
 
 	if (mysql_thread___forward_autocommit == false) {
-        if (track) proxy_error("false forward autocommit %p\n", this);
+//        if (track) proxy_error("false forward autocommit %p\n", this);
 		if (handler_SetAutocommit(pkt) == true) {
 			return true;
 		}
@@ -1968,13 +1969,15 @@ int MySQL_Session::handler() {
 //	FIXME: Sessions without frontend are an ugly hack
 	if (session_fast_forward==false) {
 	if (client_myds==NULL) {
-		// if we are here, probably we are trying to ping backends
+        if (track) {proxy_error("processing session without client_myds %p\n", this);}
+	    // if we are here, probably we are trying to ping backends
 		proxy_debug(PROXY_DEBUG_MYSQL_CONNECTION, 5, "Processing session %p without client_myds\n", this);
 		assert(mybe);
 		assert(mybe->server_myds);
 		goto handler_again;
 	} else {
 		if (mirror==true) {
+            if (track) proxy_error("mirror true %p\n", this);
 			if (mirrorPkt.ptr) { // this is the first time we call handler()
 				pkt.ptr=mirrorPkt.ptr;
 				pkt.size=mirrorPkt.size;
@@ -2004,6 +2007,7 @@ __get_pkts_from_client:
 		switch (status) {
 
 			case CONNECTING_CLIENT:
+                if (track) proxy_error("status connecting_client %p\n", this);
 				switch (client_myds->DSS) {
 					case STATE_SERVER_HANDSHAKE:
 						handler___status_CONNECTING_CLIENT___STATE_SERVER_HANDSHAKE(&pkt, &wrong_pass);
@@ -2020,6 +2024,7 @@ __get_pkts_from_client:
 				break;
 
 			case WAITING_CLIENT_DATA:
+                if (track) proxy_error("status waiting_client_data %p\n", this);
 				// this is handled only for real traffic, not mirror
 				if (pkt.size==(0xFFFFFF+sizeof(mysql_hdr))) {
 					// we are handling a multi-packet
@@ -2102,6 +2107,7 @@ __get_pkts_from_client:
 						}
 						switch ((enum_mysql_command)c) {
 							case _MYSQL_COM_QUERY:
+                                if (track) proxy_error("_MYSQL_COM_QUERY %p\n", this);
 								__sync_add_and_fetch(&thread->status_variables.queries,1);
 								if (session_type == PROXYSQL_SESSION_MYSQL) {
 									bool rc_break=false;
@@ -2112,7 +2118,9 @@ __get_pkts_from_client:
 									}
 									rc_break=handler_special_queries(&pkt);
 									if (rc_break==true) {
+                                        if (track) proxy_error("handler special_queries rc break %p\n", this);
 										if (mirror==false) {
+                                            if (track) proxy_error("rc break req end null %p\n", this);
 											// track also special queries
 											RequestEnd(NULL);
 											break;
