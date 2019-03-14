@@ -2656,10 +2656,10 @@ __mysql_thread_exit_add_mirror:
 			if (myds) myds->revents=0;
 			if (mypolls.myds[n] && mypolls.myds[n]->myds_type!=MYDS_LISTENER) {
 				if (myds && myds->myds_type==MYDS_FRONTEND && myds->DSS==STATE_SLEEP && myds->sess && myds->sess->status==WAITING_CLIENT_DATA) {
-                    if (myds->sess && myds->sess->track) {proxy_error("%p: waiting client data %p\n", this, myds->sess);}
+                    if (myds->sess && myds->sess->track) {proxy_error("%p: waiting client data, set pollout myds %p %p\n", this, myds, myds->sess);}
 					mypolls.myds[n]->set_pollout();
 				} else {
-                    if (myds->sess && myds->sess->track) {proxy_error("%p: waiting client data2 %p\n", this, myds->sess);}
+                    if (myds && myds->sess && myds->sess->track) {proxy_error("%p: waiting client data2 myds %p %p\n", this, myds, myds->sess);}
 					if (mypolls.myds[n]->DSS > STATE_MARIADB_BEGIN && mypolls.myds[n]->DSS < STATE_MARIADB_END) {
 						mypolls.fds[n].events = POLLIN;
 						if (mypolls.myds[n]->myconn->async_exit_status & MYSQL_WAIT_WRITE)
@@ -2670,7 +2670,7 @@ __mysql_thread_exit_add_mirror:
 				}
 				if (myds && myds->sess->pause_until > curtime) {
 					if (myds->myds_type==MYDS_FRONTEND) {
-                        if (myds->sess && myds->sess->track) {proxy_error("%p: remove pollout %p\n", this, myds->sess);}
+                        if (myds->sess && myds->sess->track) {proxy_error("%p: pause_until remove pollout myds %p pause_until %llu curtime %llu %p\n", this, myds, myds->sess->pause_until, curtime, myds->sess);}
 						mypolls.myds[n]->remove_pollout();
 					}
 					if (myds->myds_type==MYDS_BACKEND) {

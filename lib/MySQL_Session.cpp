@@ -499,6 +499,7 @@ void MySQL_Session::writeout() {
 			pause_until = thread->curtime + add_;
 			client_myds->remove_pollout();
 			client_myds->pause_until = thread->curtime + add_;
+           if (track) proxy_error("Set pause_until1 %llu total written %d mwpl %d %p\n", client_myds->pause_until, total_written, mwpl, this);
 		} else {
 			if (total_written >= QUEUE_T_DEFAULT_SIZE) {
 				unsigned long long time_diff = thread->curtime - last_sent_;
@@ -507,6 +508,7 @@ void MySQL_Session::writeout() {
 					pause_until = thread->curtime + add_;
 					client_myds->remove_pollout();
 					client_myds->pause_until = thread->curtime + add_;
+                    if (track) proxy_error("Set pause_until2 %llu total written %d mwpl %d time_diff %llu add_ %llu %p\n", client_myds->pause_until, total_written, mwpl, time_diff, add_, this);
 				} else {
 					float current_Bps = (float)total_written*1000*1000/time_diff;
 					if (current_Bps > mysql_thread___throttle_max_bytes_per_second_to_client) {
@@ -515,6 +517,8 @@ void MySQL_Session::writeout() {
 						assert(pause_until > thread->curtime);
 						client_myds->remove_pollout();
 						client_myds->pause_until = thread->curtime + add_;
+                        if (track) proxy_error("Set pause_until3 %llu total written %d mwpl %d current_Bps %.5f limit %d %p\n",
+                                client_myds->pause_until, total_written, mwpl, current_Bps, mysql_thread___throttle_max_bytes_per_second_to_client, this);
 					}
 				}
 			}
@@ -522,7 +526,10 @@ void MySQL_Session::writeout() {
 	}
 
 	if (mybe) {
-		if (mybe->server_myds) mybe->server_myds->write_to_net_poll();
+		if (mybe->server_myds) {
+            if (track) proxy_error("server myds write to net poll %p\n", this);
+		    mybe->server_myds->write_to_net_poll();
+		}
 	}
     if (track) proxy_error("Writeout session %p\n", this);
 	proxy_debug(PROXY_DEBUG_NET,1,"Thread=%p, Session=%p -- Writeout Session %p\n" , this->thread, this, this);
@@ -2539,6 +2546,7 @@ handler_again:
 		case PROCESSING_QUERY:
 			//fprintf(stderr,"PROCESSING_QUERY\n");
 			if (pause_until > thread->curtime) {
+                if (track) proxy_error("session pause_until return %p\n", this);
 				handler_ret = 0;
 				return handler_ret;
 			}
