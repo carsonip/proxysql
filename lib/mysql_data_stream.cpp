@@ -387,7 +387,7 @@ void MySQL_Data_Stream::set_pollout() {
 int MySQL_Data_Stream::write_to_net_poll() {
 	int rc=0;
 	if (active==0) return rc;
-    if (sess && sess->track) proxy_error("DS %p write to net poll %p\n", this, sess);
+//    if (sess && sess->track) proxy_error("DS %p write to net poll %p\n", this, sess);
 	proxy_debug(PROXY_DEBUG_NET,1,"Session=%p, DataStream=%p --\n", sess, this);
 	if (queue_data(queueOUT)) {
 		if (sess->session_type == PROXYSQL_SESSION_MYSQL) {

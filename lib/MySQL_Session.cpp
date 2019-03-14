@@ -488,6 +488,9 @@ void MySQL_Session::writeout() {
 						}
 					}
 				}
+                if (total_written < 0) {
+                    proxy_error("!!!total written %d overflow in loop! %p\n", total_written, this);
+                }
 			}
 		}
 	}
@@ -511,6 +514,9 @@ void MySQL_Session::writeout() {
                     if (track) proxy_error("Set pause_until2 %llu total written %d mwpl %d time_diff %llu add_ %llu %p\n", client_myds->pause_until, total_written, mwpl, time_diff, add_, this);
 				} else {
 					float current_Bps = (float)total_written*1000*1000/time_diff;
+					if (current_Bps < 0) {
+                        proxy_error("!!!bps overflow %d %llu %p\n", total_written, time_diff, this);
+					}
 					if (current_Bps > mysql_thread___throttle_max_bytes_per_second_to_client) {
 						unsigned long long add_ = 1000000/tps;
 						pause_until = thread->curtime + add_;
@@ -523,6 +529,8 @@ void MySQL_Session::writeout() {
 				}
 			}
 		}
+	} else if (total_written < 0) {
+        proxy_error("!!!total written %d overflow! %p\n", total_written, this);
 	}
 
 	if (mybe) {
