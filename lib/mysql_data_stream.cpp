@@ -331,6 +331,7 @@ int MySQL_Data_Stream::write_to_net() {
 		if (encrypted==false)	{
 			if ((poll_fds_idx < 0) || (mypolls->fds[poll_fds_idx].revents & POLLOUT)) { // in write_to_net_poll() we has remove this safety
                                                           // so we enforce it here
+                if (sess && sess->track) proxy_error("revents and POLLOUT, shun %p\n", sess->track);
 				shut_soft();
 			}
 		} else {

@@ -524,6 +524,7 @@ void MySQL_Session::writeout() {
 	if (mybe) {
 		if (mybe->server_myds) mybe->server_myds->write_to_net_poll();
 	}
+    if (track) proxy_error("Writeout session %p\n", this);
 	proxy_debug(PROXY_DEBUG_NET,1,"Thread=%p, Session=%p -- Writeout Session %p\n" , this->thread, this, this);
 }
 
@@ -2570,6 +2571,7 @@ handler_again:
 				mybe->server_myds->max_connect_time=0;
 				// we insert it in mypolls only if not already there
 				if (myds->mypolls==NULL) {
+                    if (track) proxy_error("Insert to mypolls by session %p\n", this);
 					thread->mypolls.add(POLLIN|POLLOUT, mybe->server_myds->fd, mybe->server_myds, thread->curtime);
 				}
 				if (default_hostgroup>=0) {
@@ -3181,6 +3183,7 @@ __exit_DSS__STATE_NOT_INITIALIZED:
 		return handler_ret;
 	}
 	handler_ret = 0;
+    if (track) proxy_error("Finish handler %p\n", this);
 	return handler_ret;
 }
 
