@@ -550,9 +550,11 @@ bool MySQL_Session::handler_CommitRollback(PtrSize_t *pkt) {
 	}
 	unsigned int nTrx=NumActiveTransactions();
 	if (nTrx) {
+        if (track) proxy_error("Commit active trx %p\n", this);
 		// there is an active transaction, we must forward the request
 		return false;
 	} else {
+        if (track) proxy_error("Commit no active trx %p\n", this);
 		// there is no active transaction, we will just reply OK
 		client_myds->DSS=STATE_QUERY_SENT_NET;
 		uint16_t setStatus = 0;
@@ -668,6 +670,7 @@ bool MySQL_Session::handler_special_queries(PtrSize_t *pkt) {
     }
 
 	if (mysql_thread___forward_autocommit == false) {
+        if (track) proxy_error("false forward autocommit %p\n", this);
 		if (handler_SetAutocommit(pkt) == true) {
 			return true;
 		}
@@ -2117,6 +2120,7 @@ __get_pkts_from_client:
 											return handler_ret;
 										}
 									}
+                                    if (track) proxy_error("Forward query %p\n", this);
 									timespec begint;
 									timespec endt;
 									if (thread->variables.stats_time_query_processor) {
@@ -2132,6 +2136,7 @@ __get_pkts_from_client:
 									assert(qpo);	// GloQPro->process_mysql_query() should always return a qpo
 									rc_break=handler___status_WAITING_CLIENT_DATA___STATE_SLEEP___MYSQL_COM_QUERY_qpo(&pkt);
 									if (rc_break==true) {
+                                        if (track) proxy_error("rc break qpo %p\n", this);
 										if (mirror==false) {
 											break;
 										} else {
@@ -2169,7 +2174,7 @@ __get_pkts_from_client:
 										}
 									}
 
-
+                                    if (track) proxy_error("sending query %p\n", this);
 									proxy_debug(PROXY_DEBUG_MYSQL_COM, 5, "Received query to be processed with MariaDB Client library\n");
 									mybe->server_myds->killed_at=0;
 									mybe->server_myds->mysql_real_query.init(&pkt);
